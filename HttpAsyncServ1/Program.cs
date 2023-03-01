@@ -27,8 +27,8 @@ namespace HttpAsyncServ1
 
             Console.CancelKeyPress += delegate {
                 isWorking = false;
-               // Task.WaitAll(ListOfTasks.ToArray());
                 server.Stop();
+                Task.WaitAll(ListOfTasks.ToArray());
                 Environment.Exit(0);
             };
             server.IgnoreWriteExceptions = true;
@@ -41,15 +41,6 @@ namespace HttpAsyncServ1
             var t = WaitForRequestAndProcess(server);
             ListOfTasks.Add(t);
             Task.WaitAll(t);
-          //  while (true) 
-          // {
-          //     //Console.WriteLine(s);
-          //   s++;
-          // var t = WaitForRequestAndProcess(server);
-          // ListOfTasks.Add(t);
-          // Console.WriteLine(ListOfTasks.Count);
-            ///  ListOfTasks.RemoveAll(t => t.IsCompleted);
-            // }
 
         }
 
@@ -76,7 +67,7 @@ namespace HttpAsyncServ1
             var ip = request.RemoteEndPoint;
             string filepath = "goodweb/" + request.Url.GetComponents(UriComponents.Path, UriFormat.UriEscaped);
             HttpListenerResponse response = context.Response;
-            Console.WriteLine(filepath);
+
             if (!File.Exists(filepath))
             {
                 Console.WriteLine(filepath);
@@ -104,7 +95,7 @@ namespace HttpAsyncServ1
 
             sb.Append(DateTime.Now + " File exist; " + url + "; " + ip + "; Status code:200\n");
             locker.AcquireWriterLock(5000);
-            Console.WriteLine(filepath);
+
             File.AppendAllText("log.txt", sb.ToString());
             locker.ReleaseWriterLock();
             sb.Clear();
