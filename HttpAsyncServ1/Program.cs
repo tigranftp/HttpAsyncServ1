@@ -10,13 +10,13 @@ namespace HttpAsyncServ1
 {
     class Program
     {
-        static ReaderWriterLock locker = new ReaderWriterLock();
-        private static bool isWorking = true;
+        private static readonly ReaderWriterLock Locker = new ReaderWriterLock();
+        private static bool _isWorking = true;
 
         private static List<Task> ListOfTasks;
-        static void Main(string[] args)
-        {
 
+        private static void Main(string[] args)
+        {
             if (!HttpListener.IsSupported)
             {
                 Console.WriteLine("Windows XP SP2 or Server 2003 is required to use the HttpListener class.");
@@ -25,8 +25,9 @@ namespace HttpAsyncServ1
 
             var server = new HttpListener();
 
-            Console.CancelKeyPress += delegate {
-                isWorking = false;
+            Console.CancelKeyPress += delegate
+            {
+                _isWorking = false;
                 server.Stop();
                 Task.WaitAll(ListOfTasks.ToArray());
                 Environment.Exit(0);
@@ -35,46 +36,47 @@ namespace HttpAsyncServ1
 
             server.Prefixes.Add("http://127.0.0.1:8080/");
 
-            server.Start(); // начинаем прослушивать входящие подключения
-            int s = 0;
+            server.Start();
             ListOfTasks = new List<Task>();
             var t = WaitForRequestAndProcess(server);
             ListOfTasks.Add(t);
             Task.WaitAll(t);
-
         }
 
 
-
-
-        static async public Task WaitForRequestAndProcess(HttpListener serv)
+        private static async Task WaitForRequestAndProcess(HttpListener serv)
         {
-            while (isWorking) {
+            while (_isWorking)
+            {
                 var context = await serv.GetContextAsync();
-                ProccesContext(context);
+                ProcessContext(context);
             }
         }
 
 
-
-        static public async void ProccesContext(HttpListenerContext context)
+        private static void ProcessContext(HttpListenerContext context)
         {
-
-           // await Task.Delay(1000);
             var request = context.Request;
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             var url = request.Url;
             var ip = request.RemoteEndPoint;
-            string filepath = "goodweb/" + request.Url.GetComponents(UriComponents.Path, UriFormat.UriEscaped);
+
+            var uriPath = request.Url.GetComponents(UriComponents.Path, UriFormat.UriEscaped);
+            if (uriPath == "")
+            {
+                uriPath = "index.html";
+            }
+
+            string filepath = "goodweb/" + uriPath;
             HttpListenerResponse response = context.Response;
 
             if (!File.Exists(filepath))
             {
                 Console.WriteLine(filepath);
                 sb.Append(DateTime.Now + " File not exist; " + url + "; " + ip + "; Status code:404\n");
-                locker.AcquireWriterLock(5000);
+                Locker.AcquireWriterLock(5000);
                 File.AppendAllText("log.txt", sb.ToString());
-                locker.ReleaseWriterLock();
+                Locker.ReleaseWriterLock();
                 sb.Clear();
                 response.StatusCode = 404;
                 response.OutputStream.Close();
@@ -83,29 +85,26 @@ namespace HttpAsyncServ1
 
 
             System.IO.Stream input = File.OpenRead(filepath);
-            byte[] buffer = new byte[1024];
+            var buffer = new byte[1024];
 
-            int bytesRead = input.Read(buffer, 0, buffer.Length);
+            var bytesRead = input.Read(buffer, 0, buffer.Length);
             while (bytesRead > 0)
             {
                 response.OutputStream.Write(buffer, 0, bytesRead);
                 bytesRead = input.Read(buffer, 0, buffer.Length);
-
             }
 
             sb.Append(DateTime.Now + " File exist; " + url + "; " + ip + "; Status code:200\n");
-            locker.AcquireWriterLock(5000);
+            Locker.AcquireWriterLock(5000);
 
             File.AppendAllText("log.txt", sb.ToString());
-            locker.ReleaseWriterLock();
+            Locker.ReleaseWriterLock();
             sb.Clear();
 
             Console.WriteLine(filepath);
             response.StatusCode = 200;
             input.Close();
             response.OutputStream.Close();
-
-
         }
     }
 }
